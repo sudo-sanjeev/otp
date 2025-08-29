@@ -1,4 +1,5 @@
 import "./styles.css";
+import Otp from "./component/Otp"
 
 export default function App() {
   return (

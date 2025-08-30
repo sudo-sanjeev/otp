@@ -4,7 +4,7 @@ import "./styles.css";
 const OTP_DIGIT_LENGTH = 5;
 
 export default function Otp({ otpLength = OTP_DIGIT_LENGTH }) {
-  const [inputArr, setInputArr] = useState(new Array(otpLength).fill("1"));
+  const [inputArr, setInputArr] = useState(new Array(otpLength).fill(""));
   const refArr = useRef([]);
 
   const handleOnChange = (input, index) => {
@@ -12,7 +12,7 @@ export default function Otp({ otpLength = OTP_DIGIT_LENGTH }) {
     const newArr = [...inputArr];
     newArr[index] = input.trim().slice(-1);
     setInputArr(newArr);
-    newArr[index] && refArr.current[[index + 1]]?.focus();
+    newArr[index] && refArr.current[index + 1]?.focus();
   };
 
   const handleKeyDown = (e, index) => {
@@ -29,7 +29,7 @@ export default function Otp({ otpLength = OTP_DIGIT_LENGTH }) {
             className="input-box"
             key={index}
             type="text"
-            value={inputArr[index]}
+            value={val}
             ref={(input) => {
               return (refArr.current[index] = input);
             }}

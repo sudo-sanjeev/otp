@@ -1,11 +1,24 @@
 .input-container {
     display: flex;
     gap: 10px;
+    justify-content: center;
+    margin: 20px 0;
 }
 
 .input-box {
     text-align: center;
-    width: 40px;
-    height: 40px;
-    font-size: 26px;
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+    font-weight: 500;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    outline: none;
+    color: #333;
+    transition: border-color 0.2s ease;
 }
+
+.input-box:focus {
+    border-color: #3498db;
+}
+

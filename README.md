@@ -2,10 +2,6 @@
 
 A comprehensive, reusable React component for OTP (One-Time Password) input fields, designed with interview best practices and real-world usability in mind.
 
-## 🎯 About This Project
-
-The OTP component is one of the most commonly asked machine coding questions in React interviews. This implementation demonstrates a systematic approach to building production-ready components, focusing on user experience, accessibility, and clean code architecture.
-
 **GitHub Repository**: [https://github.com/sudo-sanjeev/otp](https://github.com/sudo-sanjeev/otp)
 
 ## ✅ Milestones
@@ -37,37 +33,15 @@ function App() {
 }
 ```
 
-## ✅ Implementation Strategy & Milestones
+## 📋 Props API
 
-This project follows a phased development approach, perfect for interview scenarios where time management is crucial:
+| Prop              | Type     | Default    | Description                   |
+| ----------------- | -------- | ---------- | ----------------------------- |
+| `otpLength`       | number   | 5          | Number of OTP digits          |
+| `autoSubmitDelay` | number   | 500        | Delay before auto-submit (ms) |
+| `onComplete`      | function | `() => {}` | Callback when OTP is complete |
 
-### Phase 1: Core Functionality ⚡
-
-- **Configurable length** (4-6 digits default, fully customizable)
-- **Numeric-only input** with validation
-- **Single character per field** constraint
-- **Auto-focus navigation** (moves to next field automatically)
-- **Backspace handling** (moves to previous field when current is empty)
-
-### Phase 2: Enhanced UX 🎨
-
-- **Paste support** with intelligent auto-distribution
-- **Arrow key navigation** (left/right keys for manual navigation)
-- **Click-to-focus** functionality
-- **Auto-submit** when OTP is complete
-- **Auto-clear** after submission
-
-### Phase 3: Validation & Accessibility ♿
-
-- **ARIA labels** for screen readers
-- **Keyboard navigation** support
-- **Input validation** with error handling
-- **Customizable styling** through CSS classes
-- **Screen reader compatibility**
-
-## 🏗️ Architecture & Code Organization
-
-### Component Structure
+## 🏗️ Architecture
 
 ```
 src/
@@ -78,99 +52,215 @@ src/
 │       └── useOtp.js       # Custom hook with all logic
 ```
 
-### Key Design Decisions
+**Key Design Decisions:**
 
-1. **Custom Hook Pattern**: All logic is extracted into `useOtp` hook for better separation of concerns and testability
-2. **Ref Management**: Uses `useRef` array to manage focus across multiple input fields
-3. **State Management**: Simple `useState` for input array, avoiding over-engineering
-4. **Event Handling**: Comprehensive keyboard and paste event handling
+- **Custom Hook Pattern**: Logic separated into `useOtp` hook for reusability
+- **Ref Management**: `useRef` array to manage focus across input fields
+- **Event Handling**: Comprehensive keyboard and paste event handling
 
-## 🔧 Features Deep Dive
+## 💻 Complete Code Implementation
 
-### Smart Paste Handling
+### Main OTP Component (`Otp.js`)
 
 ```javascript
-const handlePaste = (e) => {
-  e.preventDefault();
-  const clipboardData = e.clipboardData.getData("text");
+import { useOtp } from "./hooks/useOtp";
+import "./styles.css";
 
-  // Extract only numeric characters
-  let numericChars = "";
-  for (let i = 0; i < clipboardData.length; i++) {
-    const char = clipboardData[i];
-    if (char >= "0" && char <= "9") {
-      numericChars += char;
-    }
-  }
+const OTP_DIGIT_LENGTH = 5;
+const AUTO_SUBMIT_DELAY = 500;
 
-  // Distribute across input fields
-  const digitsToPaste = numericChars.slice(0, otpLength);
-  // ... rest of implementation
-};
+export default function Otp({
+  otpLength = OTP_DIGIT_LENGTH,
+  autoSubmitDelay = AUTO_SUBMIT_DELAY,
+  onComplete = () => console.log("success"),
+}) {
+  const { inputArr, refArr, handleOnChange, handleKeyDown, handlePaste } =
+    useOtp(otpLength, autoSubmitDelay, onComplete);
+
+  return (
+    <>
+      <label id="otp-label">Enter verification code</label>
+      <div className="input-container" role="group" aria-labelledby="otp-label">
+        {inputArr.map((val, index) => (
+          <input
+            className="input-box"
+            key={index}
+            type="text"
+            inputMode="numeric" // Shows numeric keypad on mobile
+            pattern="[0-9]" // HTML5 validation pattern
+            maxLength="1" // Restricts to single character
+            value={val}
+            aria-label={`Digit ${index + 1} of ${otpLength}`}
+            ref={(input) => (refArr.current[index] = input)}
+            onChange={(e) => handleOnChange(e.target.value, index)}
+            onKeyDown={(e) => handleKeyDown(e, index)}
+            onPaste={(e) => handlePaste(e)}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
 ```
 
-### Auto-Focus Management
+### Custom Hook (`useOtp.js`)
 
 ```javascript
+import { useState, useRef, useEffect } from "react";
+
 const focusInput = (refArr, index) => {
   refArr.current[index]?.focus();
 };
 
-// Usage in onChange
-if (newArr[index] && index < otpLength - 1) {
-  focusInput(refArr, index + 1);
-}
+export const useOtp = (otpLength, autoSubmitDelay, onComplete) => {
+  const [inputArr, setInputArr] = useState(new Array(otpLength).fill(""));
+  const refArr = useRef([]);
+
+  // Auto-submit when all fields are filled
+  useEffect(() => {
+    const isComplete = inputArr.every((digit) => digit !== "");
+    let timer;
+
+    if (isComplete) {
+      timer = setTimeout(() => {
+        onComplete(inputArr.join("")); // Call parent callback
+        setInputArr(new Array(otpLength).fill("")); // Reset form
+      }, autoSubmitDelay);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer); // Cleanup timer
+    };
+  }, [inputArr, onComplete, otpLength, autoSubmitDelay]);
+
+  // Focus first input on mount
+  useEffect(() => {
+    refArr.current[0]?.focus();
+  }, []);
+
+  const handleOnChange = (input, index) => {
+    // Validate: only allow numeric input
+    if (input && (input < "0" || input > "9")) return;
+
+    const newArr = [...inputArr];
+    newArr[index] = input.slice(-1); // Take only last character
+    setInputArr(newArr);
+
+    // Auto-advance to next field
+    if (newArr[index] && index < otpLength - 1) {
+      focusInput(refArr, index + 1);
+    }
+  };
+
+  const handleKeyDown = (e, index) => {
+    const { key, target } = e;
+
+    switch (key) {
+      case "Backspace":
+        if (!target.value && index > 0) {
+          focusInput(refArr, index - 1);
+        }
+        break;
+      case "ArrowRight":
+        if (index < otpLength - 1) {
+          focusInput(refArr, index + 1);
+        }
+        break;
+      case "ArrowLeft":
+        if (index > 0) {
+          focusInput(refArr, index - 1);
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const clipBoardData = e.clipboardData.getData("text");
+
+    // Extract only numeric characters
+    let numericChars = "";
+    for (let i = 0; i < clipBoardData.length; i++) {
+      const char = clipBoardData[i];
+      if (char >= "0" && char <= "9") {
+        numericChars += char;
+      }
+    }
+
+    // Limit to OTP length and distribute
+    const digitsToPaste = numericChars.slice(0, otpLength);
+    const newArr = new Array(otpLength).fill("");
+
+    for (let i = 0; i < digitsToPaste.length; i++) {
+      newArr[i] = digitsToPaste[i];
+    }
+
+    setInputArr(newArr);
+
+    // Focus the next empty field or last filled field
+    const nextIndex = Math.min(digitsToPaste.length, otpLength - 1);
+    focusInput(refArr, nextIndex);
+  };
+
+  return {
+    inputArr,
+    refArr,
+    handleOnChange,
+    handleKeyDown,
+    handlePaste,
+  };
+};
 ```
 
-### Keyboard Navigation
-
-- **Backspace**: Moves to previous field when current field is empty
-- **Arrow Keys**: Manual navigation between fields
-- **Number Keys**: Direct input with automatic progression
-
-## 🎨 Styling & Customization
-
-The component uses CSS classes for easy customization:
+### Styling (`styles.css`)
 
 ```css
 .input-container {
   display: flex;
   gap: 10px;
   justify-content: center;
+  margin: 20px 0;
 }
 
 .input-box {
+  text-align: center;
   width: 50px;
   height: 50px;
-  text-align: center;
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 500;
   border: 2px solid #ddd;
   border-radius: 8px;
+  outline: none;
+  color: #333;
+  transition: border-color 0.2s ease;
 }
 
 .input-box:focus {
-  border-color: #007bff;
-  outline: none;
+  border-color: #3498db;
 }
 ```
 
-## 📋 Props API
+## 🔧 Key Implementation Details
 
-| Prop              | Type     | Default    | Description                   |
-| ----------------- | -------- | ---------- | ----------------------------- |
-| `otpLength`       | number   | 5          | Number of OTP digits          |
-| `autoSubmitDelay` | number   | 500        | Delay before auto-submit (ms) |
-| `onComplete`      | function | `() => {}` | Callback when OTP is complete |
+**Critical Decisions:**
 
-## 🧪 Interview Tips & Best Practices
+- **`slice(-1)`**: Ensures only one character per field
+- **Optional Chaining (`?.`)**: Prevents errors if refs aren't ready
+- **Timer Cleanup**: Prevents memory leaks in useEffect
+- **Numeric Validation**: Character-by-character validation for paste operations
+- **Focus Management**: Centralized focus control through helper function
 
-### Time Management Strategy
+## 🧪 Interview Strategy
 
-1. **Requirements Gathering** (5 minutes): Ask clarifying questions
-2. **Core Implementation** (15 minutes): Focus on basic functionality first
-3. **Enhancement** (10 minutes): Add UX improvements if time permits
+### Time Management (30 minutes)
 
-### Key Questions to Ask in Interviews
+1. **Requirements Gathering** (5 min): Ask clarifying questions
+2. **Core Implementation** (15 min): Focus on basic functionality first
+3. **Enhancement** (10 min): Add UX improvements if time permits
+
+### Key Questions to Ask
 
 - Should we validate the OTP or is a placeholder fine?
 - Is the OTP length fixed or dynamic?
@@ -187,26 +277,19 @@ The component uses CSS classes for easy customization:
 ## 🚀 Running the Project
 
 ```bash
-# Install dependencies
 npm install
-
-# Start development server
 npm start
-
-# Build for production
-npm run build
 ```
 
 ## 📝 Final Notes
 
-Remember: In interviews, you won't be able to implement everything perfectly in 30 minutes, and that's okay! Focus on:
+In interviews, focus on:
 
 1. **Think before you code** - Show your thought process
 2. **Write clean, understandable code** - Quality over quantity
-3. **Communicate clearly** - Explain your decisions
-4. **Handle one thing well** - Better to nail core functionality than half-implement everything
+3. **Handle one thing well** - Better to nail core functionality than half-implement everything
 
-Sometimes solving one part of the problem exceptionally well is enough to impress interviewers more than a rushed, complete solution.
+Sometimes solving one part exceptionally well impresses more than a rushed, complete solution.
 
 ---
 
